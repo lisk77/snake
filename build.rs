@@ -11,7 +11,6 @@ fn main() -> Result<()> {
     println!("cargo:rerun-if-changed=res/textures/*");
     println!("cargo:rerun-if-changed=res/fonts/*");
     println!("cargo:rerun-if-changed=res/sounds/*");
-    println!("cargo:rerun-if-changed=res/shaders/*");
 
     let profile = env::var("PROFILE")?;
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?);
@@ -25,7 +24,7 @@ fn main() -> Result<()> {
     copy_options.overwrite = true;
     copy_options.copy_inside = true;
 
-    let resource_folders = vec!["res/textures/", "res/fonts/", "res/sounds/", "res/shaders/"];
+    let resource_folders = vec!["res/textures/", "res/fonts/", "res/sounds/"];
 
     let resource_paths: Vec<PathBuf> = resource_folders
         .iter()
