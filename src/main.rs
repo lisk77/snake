@@ -9,6 +9,24 @@ struct Controller {
     buffered_direction: v2,
 }
 
+impl Controller {
+    pub fn direction(&self) -> v2 {
+        self.direction
+    }
+
+    pub fn buffered_direction(&self) -> v2 {
+        self.buffered_direction
+    }
+
+    pub fn set_direction(&mut self, direction: v2) {
+        self.direction = direction;
+    }
+
+    pub fn set_buffered_direction(&mut self, buffered_direction: v2) {
+        self.buffered_direction = buffered_direction;
+    }
+}
+
 #[derive(Component)]
 struct Grid {
     cell_size: f32,
@@ -103,6 +121,8 @@ fn setup(app: &mut App, renderer: &mut RenderHandle2D) {
 
 fn update(app: &mut App, renderer: &mut RenderHandle2D, dt: f32) {
     resize_game_camera(app, renderer);
+    handle_input(app, v2::ZERO);
+    update_snake(app);
     renderer.render_scene_2d(app.scene_mut());
 }
 
@@ -134,6 +154,36 @@ fn resize_game_camera(app: &mut App, renderer: &mut RenderHandle2D) {
         let target_zoom = 10.0 / fit_scale;
         let zoom = target_zoom.round().clamp(1.0, fit_scale);
         c.set_zoom(zoom);
+    });
+}
+
+fn update_snake(app: &mut App) {
+    app.query_mut::<(Transform2D, Controller)>().for_each(|t, c| {
+        t.set_rotation(c.direction.angle(&v2::X));
+    });
+}
+
+fn handle_input(app: &mut App, head_pos: v2) {
+    let mut new_direction = v2::ZERO;
+
+    if app.key_held(Key::KeyW) && head_pos.y() != 128.0 {
+        new_direction = v2::new(0.0, 1.0);
+    } else if app.key_held(Key::KeyS) && head_pos.y() != -128.0 {
+        new_direction = v2::new(0.0, -1.0);
+    } else if app.key_held(Key::KeyA) && head_pos.x() != -128.0 {
+        new_direction = v2::new(-1.0, 0.0);
+    } else if app.key_held(Key::KeyD) && head_pos.x() != 128.0 {
+        new_direction = v2::new(1.0, 0.0);
+    }
+
+    if new_direction == v2::ZERO {
+        return;
+    }
+
+    app.query_mut::<Controller>().for_each(|c| {
+        if new_direction != -c.direction() {
+            c.set_direction(new_direction);
+        }
     });
 }
 
