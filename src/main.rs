@@ -1,15 +1,12 @@
 use comet::prelude::*;
 
-const CELLS: u8 = 16;
-const CELL_SIZE: f32 = 16.0;
-
 #[derive(Component)]
 struct Snake;
 
 #[derive(Component)]
-struct Direction {
-    x: i8,
-    y: i8,
+struct Controller {
+    direction: v2,
+    buffered_direction: v2,
 }
 
 #[derive(Component)]
@@ -48,7 +45,7 @@ bundle!(Camera {
 
 bundle!(SnakeSegment {
     snake: Snake,
-    dir: Direction,
+    controller: Controller,
     transform: Transform2D,
     render: Render2D
 });
@@ -64,7 +61,7 @@ fn setup(app: &mut App, renderer: &mut RenderHandle2D) {
     renderer.init_atlas();
 
     app.register_component::<Snake>();
-    app.register_component::<Direction>();
+    app.register_component::<Controller>();
     app.register_component::<Grid>();
     app.register_component::<Rectangle2D>();
 
@@ -75,10 +72,16 @@ fn setup(app: &mut App, renderer: &mut RenderHandle2D) {
 
     app.spawn_bundle(SnakeSegment {
         snake: Snake,
-        dir: Direction::new(),
+        controller: Controller {
+            direction: v2::new(1.0, 0.0),
+            buffered_direction: v2::new(0.0, 0.0),
+        },
         transform: Transform2D::new(),
-        render: Render2D::with_texture("res/textures/snake_body.png"),
+        render: Render2D::new("res/textures/snake_body.png", true, v2::new(1.0, 1.0), 1),
     });
+
+    let cells: u8 = 16;
+    let cell_size: f32 = 16.0;
 
     let mut grid_transform = Transform2D::new();
 
@@ -91,7 +94,7 @@ fn setup(app: &mut App, renderer: &mut RenderHandle2D) {
     grid_collider.set_position(Position2D::from_vec(grid_pos));
 
     app.spawn_bundle(Field {
-        grid: Grid::new(CELL_SIZE, CELLS),
+        grid: Grid::new(cell_size, cells),
         transform: grid_transform,
         collider: grid_collider,
         render: Render2D::with_texture("res/textures/field.png")
