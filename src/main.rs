@@ -106,9 +106,12 @@ fn setup(app: &mut App, renderer: &mut RenderHandle2D) {
     let mut snake_timer = Timer::new();
     snake_timer.set_interval(0.5);
 
+    let mut dir = Direction::new();
+    dir.set_buffered_dir(v2::Y);
+    
     app.spawn_bundle(SnakeSegment {
         snake: Snake,
-        dir: Direction::new(),
+        dir,
         transform: Transform2D::new(),
         render: Render2D::new("res/textures/snake_head.png", true, v2::new(1.0, 1.0), 1),
     });
@@ -135,8 +138,10 @@ fn setup(app: &mut App, renderer: &mut RenderHandle2D) {
 }
 
 fn update(app: &mut App, renderer: &mut RenderHandle2D, dt: f32) {
+    let head_pos = app.query::<Transform2D>().with::<Snake>().iter().next().unwrap().position().as_vec();
+    
     resize_game_camera(app, renderer);
-    handle_input(app, v2::ZERO);
+    handle_input(app, head_pos);
     update_snake(app);
     renderer.render_scene_2d(app.scene_mut());
 }
@@ -191,9 +196,11 @@ fn update_snake(app: &mut App) {
     if !is_done {
         return;
     }
+
     update_snake_direction(app);
     update_snake_orientation(app);
     update_snake_textures(app);
+    update_snake_position(app);
 
     app.query_mut::<Timer>()
         .iter()
@@ -264,6 +271,14 @@ fn update_snake_textures(app: &mut App) {
         }
 
     }
+}
+
+fn update_snake_position(app: &mut App) {
+    let cell_size = app.query::<Grid>().iter().next().unwrap().cell_size();
+
+    app.query_mut::<(Transform2D, Direction)>().with::<Snake>().for_each(|t, d| {
+        t.translate(d.direction()*cell_size);
+    });
 }
 
 fn handle_input(app: &mut App, head_pos: v2) {
