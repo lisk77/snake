@@ -81,15 +81,6 @@ bundle!(Field {
     render: Render2D
 });
 
-static SNAKE_TEXTURE_MAP: LazyLock<HashMap<(i64, i64), &str>> = LazyLock::new(|| {
-    let mut map= HashMap::new();
-    map.insert((1, 1), "res/textures/snake_turn_right.png");
-    map.insert((1, -1), "res/textures/snake_turn_left.png");
-    map.insert((-1, 1), "res/textures/snake_turn_left.png");
-    map.insert((-1, -1), "res/textures/snake_turn_right.png");
-    map
-});
-
 fn setup(app: &mut App, renderer: &mut RenderHandle2D) {
     renderer.init_atlas();
 
@@ -259,8 +250,18 @@ fn update_snake_textures(app: &mut App) {
             continue;
         }
 
-        let added = directions[i] + directions[i+1];
-        renders[i].set_texture(SNAKE_TEXTURE_MAP[&(added.x() as i64, added.y() as i64)]);
+        let det = directions[i].x() * directions[i+1].y() - directions[i].y() * directions[i+1].x();
+        if det < 0.0 {
+            renders[i].set_texture("res/textures/snake_turn_left.png");
+            continue;
+        }
+        else if det > 0.0 {
+            renders[i].set_texture("res/textures/snake_turn_right.png");
+            continue;
+        }
+        else {
+            renders[i].set_texture("res/textures/snake_body.png");
+        }
 
     }
 }
