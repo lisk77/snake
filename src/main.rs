@@ -97,11 +97,23 @@ fn setup(app: &mut App, renderer: &mut RenderHandle2D) {
     app.register_component::<Direction>();
     app.register_component::<Grid>();
     app.register_component::<Rectangle2D>();
+    app.register_component::<Timer>();
+    
+    let timer_entity = app.new_entity();
+    let mut timer_component = Timer::new();
+
+    timer_component.set_interval(0.5);
+    app.add_component(timer_entity, timer_component);
+
+    app.add_tick_system(update_timers);
 
     app.spawn_bundle(Camera {
         transform: Transform2D::new(),
         camera: Camera2D::new(v2::new(1.0, 1.0), 1.0, 1),
     });
+
+    let mut snake_timer = Timer::new();
+    snake_timer.set_interval(0.5);
 
     app.spawn_bundle(SnakeSegment {
         snake: Snake,
@@ -138,6 +150,12 @@ fn update(app: &mut App, renderer: &mut RenderHandle2D, dt: f32) {
     renderer.render_scene_2d(app.scene_mut());
 }
 
+fn update_timers(app: &mut App, dt: f32) {
+    app.query_mut::<Timer>().for_each(|t| {
+        t.update_timer(dt);
+    });
+}
+
 fn resize_game_camera(app: &mut App, renderer: &mut RenderHandle2D) {
     let (grid_cells, grid_cell_size) = match app.query::<Grid>().iter().next() {
         Some(g) => (g.cells(), g.cell_size()),
@@ -172,18 +190,25 @@ fn resize_game_camera(app: &mut App, renderer: &mut RenderHandle2D) {
 }
 
 fn update_snake(app: &mut App) {
+    let is_done = app
+        .query::<Timer>()
+        .iter()
+        .next()
+        .map(|t| t.is_done())
+        .unwrap_or(false);
+
+    if !is_done {
+        return;
+    }
     update_snake_direction(app);
     update_snake_orientation(app);
     update_snake_textures(app);
-}
 
-fn update_snake_orientation(app: &mut App) {
-    app.query_mut::<(Transform2D, Direction)>()
-        .for_each(|t, c| {
-            let dir = c.direction();
-            let angle = dir.y().atan2(dir.x());
-            t.set_rotation((angle.to_degrees() - 90.0).to_radians());
-        });
+    app.query_mut::<Timer>()
+        .iter()
+        .next()
+        .unwrap()
+        .reset();
 }
 
 fn update_snake_direction(app: &mut App) {
@@ -204,6 +229,15 @@ fn update_snake_direction(app: &mut App) {
     for (i, d) in app.query_mut::<Direction>().iter().skip(1).enumerate() {
         d.set_direction(directions[i]);
     }
+}
+
+fn update_snake_orientation(app: &mut App) {
+    app.query_mut::<(Transform2D, Direction)>()
+        .for_each(|t, c| {
+            let dir = c.direction();
+            let angle = dir.y().atan2(dir.x());
+            t.set_rotation((angle.to_degrees() - 90.0).to_radians());
+        });
 }
 
 fn update_snake_textures(app: &mut App) {    
