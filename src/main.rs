@@ -1,37 +1,43 @@
+use std::collections::HashMap;
+use std::sync::LazyLock;
 use comet::prelude::*;
 
 #[derive(Component)]
 struct Snake;
 
 #[derive(Component)]
-struct Controller {
+struct Direction {
     direction: v2,
-    buffered_direction: v2,
+    buffered_dir: v2
 }
 
-impl Controller {
+impl Direction {
     pub fn direction(&self) -> v2 {
         self.direction
-    }
-
-    pub fn buffered_direction(&self) -> v2 {
-        self.buffered_direction
     }
 
     pub fn set_direction(&mut self, direction: v2) {
         self.direction = direction;
     }
 
-    pub fn set_buffered_direction(&mut self, buffered_direction: v2) {
-        self.buffered_direction = buffered_direction;
+    pub fn update(&mut self) {
+        self.direction = self.buffered_dir
     }
+
+    pub fn buffered_dir(&self) -> v2 {
+        self.buffered_dir
+    }
+
+    pub fn set_buffered_dir(&mut self, dir: v2) {
+        self.buffered_dir = dir;
+    } 
 }
 
 #[derive(Component)]
 struct Grid {
     cell_size: f32,
     cells: u8,
-    bounds: f32
+    bounds: f32,
 }
 
 impl Grid {
@@ -63,7 +69,7 @@ bundle!(Camera {
 
 bundle!(SnakeSegment {
     snake: Snake,
-    controller: Controller,
+    dir: Direction,
     transform: Transform2D,
     render: Render2D
 });
@@ -75,11 +81,20 @@ bundle!(Field {
     render: Render2D
 });
 
+static SNAKE_TEXTURE_MAP: LazyLock<HashMap<(i64, i64), &str>> = LazyLock::new(|| {
+    let mut map= HashMap::new();
+    map.insert((1, 1), "res/textures/snake_turn_right.png");
+    map.insert((1, -1), "res/textures/snake_turn_left.png");
+    map.insert((-1, 1), "res/textures/snake_turn_left.png");
+    map.insert((-1, -1), "res/textures/snake_turn_right.png");
+    map
+});
+
 fn setup(app: &mut App, renderer: &mut RenderHandle2D) {
     renderer.init_atlas();
 
     app.register_component::<Snake>();
-    app.register_component::<Controller>();
+    app.register_component::<Direction>();
     app.register_component::<Grid>();
     app.register_component::<Rectangle2D>();
 
@@ -90,12 +105,9 @@ fn setup(app: &mut App, renderer: &mut RenderHandle2D) {
 
     app.spawn_bundle(SnakeSegment {
         snake: Snake,
-        controller: Controller {
-            direction: v2::new(1.0, 0.0),
-            buffered_direction: v2::new(0.0, 0.0),
-        },
+        dir: Direction::new(),
         transform: Transform2D::new(),
-        render: Render2D::new("res/textures/snake_body.png", true, v2::new(1.0, 1.0), 1),
+        render: Render2D::new("res/textures/snake_head.png", true, v2::new(1.0, 1.0), 1),
     });
 
     let cells: u8 = 16;
@@ -106,7 +118,7 @@ fn setup(app: &mut App, renderer: &mut RenderHandle2D) {
     // for pixel alignment
     grid_transform.position_mut().set_x(0.5);
     grid_transform.position_mut().set_y(0.5);
-    
+
     let grid_pos = grid_transform.position().as_vec();
     let mut grid_collider = Rectangle2D::new();
     grid_collider.set_position(Position2D::from_vec(grid_pos));
@@ -115,7 +127,7 @@ fn setup(app: &mut App, renderer: &mut RenderHandle2D) {
         grid: Grid::new(cell_size, cells),
         transform: grid_transform,
         collider: grid_collider,
-        render: Render2D::with_texture("res/textures/field.png")
+        render: Render2D::with_texture("res/textures/field.png"),
     });
 }
 
@@ -144,7 +156,9 @@ fn resize_game_camera(app: &mut App, renderer: &mut RenderHandle2D) {
 
         let mut fit_scale = 1.0;
         for mult in 1..=10 {
-            if game_width * mult as f32 <= screen_width && game_height * mult as f32 <= screen_height {
+            if game_width * mult as f32 <= screen_width
+                && game_height * mult as f32 <= screen_height
+            {
                 fit_scale = mult as f32;
             } else {
                 break;
@@ -158,9 +172,63 @@ fn resize_game_camera(app: &mut App, renderer: &mut RenderHandle2D) {
 }
 
 fn update_snake(app: &mut App) {
-    app.query_mut::<(Transform2D, Controller)>().for_each(|t, c| {
-        t.set_rotation(c.direction.angle(&v2::X));
-    });
+    update_snake_direction(app);
+    update_snake_orientation(app);
+    update_snake_textures(app);
+}
+
+fn update_snake_orientation(app: &mut App) {
+    app.query_mut::<(Transform2D, Direction)>()
+        .for_each(|t, c| {
+            let dir = c.direction();
+            let angle = dir.y().atan2(dir.x());
+            t.set_rotation((angle.to_degrees() - 90.0).to_radians());
+        });
+}
+
+fn update_snake_direction(app: &mut App) {
+    let mut directions = app
+        .query::<Direction>()
+        .iter()
+        .map(|d| d.direction())
+        .collect::<Vec<v2>>();
+    directions.pop();
+
+    let head_dir = app
+        .query_mut::<Direction>()
+        .iter()
+        .next()
+        .unwrap();
+    head_dir.set_direction(head_dir.buffered_dir());
+
+    for (i, d) in app.query_mut::<Direction>().iter().skip(1).enumerate() {
+        d.set_direction(directions[i]);
+    }
+}
+
+fn update_snake_textures(app: &mut App) {    
+    let directions = app
+        .query::<Direction>()
+        .iter()
+        .map(|d| d.direction())
+        .collect::<Vec<v2>>();
+
+    let mut renders = app.query_mut::<Render2D>().with::<Snake>().iter().collect::<Vec<&mut Render2D>>(); 
+    for i in 0..renders.len() {
+        if i == 0 {
+            renders[i].set_texture("res/textures/snake_head.png");
+            continue;
+        }
+
+        if i == renders.len() {
+            renders[i].set_texture("res/textures/snake_tail.png");
+            continue;
+        }
+
+        let added = directions[i] + directions[i+1];
+        renders[i].set_texture(SNAKE_TEXTURE_MAP[&(added.x() as i64, added.y() as i64)]);
+
+    }
 }
 
 fn handle_input(app: &mut App, head_pos: v2) {
@@ -180,17 +248,16 @@ fn handle_input(app: &mut App, head_pos: v2) {
         return;
     }
 
-    app.query_mut::<Controller>().for_each(|c| {
-        if new_direction != -c.direction() {
-            c.set_direction(new_direction);
-        }
-    });
+    let head_dir = app.query_mut::<Direction>().iter().next().unwrap();
+    if new_direction != -head_dir.direction() {
+        head_dir.set_buffered_dir(new_direction);
+    }
 }
 
 fn main() {
     App::new()
         .with_preset(App2D)
         .with_title("Snake")
-        //.with_clear_color(sRgba::<u8>::from_hex("1f6c1cff"))
+        .with_clear_color(sRgba::<u8>::from_hex("1f6c1cff"))
         .run::<Renderer2D>(setup, update)
 }
