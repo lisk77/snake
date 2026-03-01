@@ -69,7 +69,8 @@ bundle!(SnakeSegment {
     snake: Snake,
     dir: Direction,
     transform: Transform2D,
-    render: Render2D
+    collider: Rectangle2D,
+    render: Render2D,
 });
 
 bundle!(Field {
@@ -88,6 +89,10 @@ fn setup(app: &mut App, renderer: &mut RenderHandle2D) {
     app.register_component::<Rectangle2D>();
     app.register_component::<Timer>();
 
+    let cells: u8 = 16;
+    let cell_size: f32 = 16.0;
+    let grid_size: f32 = (cells as f32) * cell_size;
+
     let timer_entity = app.new_entity();
     let mut timer_component = Timer::new();
 
@@ -101,9 +106,6 @@ fn setup(app: &mut App, renderer: &mut RenderHandle2D) {
         camera: Camera2D::new(v2::new(1.0, 1.0), 1.0, 1),
     });
 
-    let mut snake_timer = Timer::new();
-    snake_timer.set_interval(0.5);
-
     let mut dir = Direction::new();
     dir.set_buffered_dir(v2::Y);
 
@@ -111,16 +113,14 @@ fn setup(app: &mut App, renderer: &mut RenderHandle2D) {
         snake: Snake,
         dir,
         transform: Transform2D::new(),
+        collider: Rectangle2D::with_size(cell_size, cell_size),
         render: Render2D::new("res/textures/snake_head.png", true, v2::new(1.0, 1.0), 1),
     });
-
-    let cells: u8 = 16;
-    let cell_size: f32 = 16.0;
 
     app.spawn_bundle(Field {
         grid: Grid::new(cell_size, cells),
         transform: Transform2D::new(),
-        collider: Rectangle2D::new(),
+        collider: Rectangle2D::with_size(grid_size, grid_size),
         render: Render2D::with_texture("res/textures/field.png"),
     });
 }
@@ -136,8 +136,10 @@ fn update(app: &mut App, renderer: &mut RenderHandle2D, dt: f32) {
         .as_vec();
 
     resize_game_camera(app, renderer);
-    handle_input(app, head_pos);
-    update_snake(app);
+    if !snake_out_of_bounds(app) {
+        handle_input(app, head_pos);
+        update_snake(app);
+    }
     renderer.render_scene_2d(app.scene_mut());
 }
 
@@ -194,8 +196,11 @@ fn update_snake(app: &mut App) {
 
     update_snake_direction(app);
     update_snake_orientation(app);
-    update_snake_textures(app);
-    update_snake_position(app);
+    update_snake_colliders(app);
+    if !snake_out_of_bounds(app) {
+        update_snake_textures(app);
+        update_snake_position(app);
+    }
 
     app.query_mut::<Timer>().iter().next().unwrap().reset();
 }
@@ -270,6 +275,38 @@ fn update_snake_position(app: &mut App) {
         .for_each(|t, d| {
             t.translate(d.direction() * cell_size);
         });
+}
+
+fn update_snake_colliders(app: &mut App) {
+    let cell_size = app.query::<Grid>().iter().next().unwrap().cell_size();
+    let positions = app
+        .query::<Transform2D>()
+        .with::<Snake>()
+        .iter()
+        .map(|t| t.position().as_vec())
+        .collect::<Vec<v2>>();
+
+    for (i, (r, d)) in app
+        .query_mut::<(Rectangle2D, Direction)>()
+        .with::<Snake>()
+        .iter()
+        .enumerate()
+    {
+        r.set_position(Position2D::from_vec(d.direction * cell_size + positions[i]));
+    }
+}
+
+fn snake_out_of_bounds(app: &mut App) -> bool {
+    let field_collider = app.query::<(Rectangle2D, Grid)>().iter().next().unwrap().0;
+
+    let snake_head_collider = app
+        .query::<Rectangle2D>()
+        .with::<Snake>()
+        .iter()
+        .next()
+        .unwrap();
+
+    !snake_head_collider.is_colliding(field_collider)
 }
 
 fn handle_input(app: &mut App, head_pos: v2) {
