@@ -117,20 +117,10 @@ fn setup(app: &mut App, renderer: &mut RenderHandle2D) {
     let cells: u8 = 16;
     let cell_size: f32 = 16.0;
 
-    let mut grid_transform = Transform2D::new();
-
-    // for pixel alignment
-    grid_transform.position_mut().set_x(0.5);
-    grid_transform.position_mut().set_y(0.5);
-
-    let grid_pos = grid_transform.position().as_vec();
-    let mut grid_collider = Rectangle2D::new();
-    grid_collider.set_position(Position2D::from_vec(grid_pos));
-
     app.spawn_bundle(Field {
         grid: Grid::new(cell_size, cells),
-        transform: grid_transform,
-        collider: grid_collider,
+        transform: Transform2D::new(),
+        collider: Rectangle2D::new(),
         render: Render2D::with_texture("res/textures/field.png"),
     });
 }
