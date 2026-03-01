@@ -6,7 +6,7 @@ struct Snake;
 #[derive(Component)]
 struct Direction {
     direction: v2,
-    buffered_dir: v2
+    buffered_dir: v2,
 }
 
 impl Direction {
@@ -28,7 +28,7 @@ impl Direction {
 
     pub fn set_buffered_dir(&mut self, dir: v2) {
         self.buffered_dir = dir;
-    } 
+    }
 }
 
 #[derive(Component)]
@@ -87,7 +87,7 @@ fn setup(app: &mut App, renderer: &mut RenderHandle2D) {
     app.register_component::<Grid>();
     app.register_component::<Rectangle2D>();
     app.register_component::<Timer>();
-    
+
     let timer_entity = app.new_entity();
     let mut timer_component = Timer::new();
 
@@ -106,7 +106,7 @@ fn setup(app: &mut App, renderer: &mut RenderHandle2D) {
 
     let mut dir = Direction::new();
     dir.set_buffered_dir(v2::Y);
-    
+
     app.spawn_bundle(SnakeSegment {
         snake: Snake,
         dir,
@@ -136,8 +136,15 @@ fn setup(app: &mut App, renderer: &mut RenderHandle2D) {
 }
 
 fn update(app: &mut App, renderer: &mut RenderHandle2D, dt: f32) {
-    let head_pos = app.query::<Transform2D>().with::<Snake>().iter().next().unwrap().position().as_vec();
-    
+    let head_pos = app
+        .query::<Transform2D>()
+        .with::<Snake>()
+        .iter()
+        .next()
+        .unwrap()
+        .position()
+        .as_vec();
+
     resize_game_camera(app, renderer);
     handle_input(app, head_pos);
     update_snake(app);
@@ -200,11 +207,7 @@ fn update_snake(app: &mut App) {
     update_snake_textures(app);
     update_snake_position(app);
 
-    app.query_mut::<Timer>()
-        .iter()
-        .next()
-        .unwrap()
-        .reset();
+    app.query_mut::<Timer>().iter().next().unwrap().reset();
 }
 
 fn update_snake_direction(app: &mut App) {
@@ -215,11 +218,7 @@ fn update_snake_direction(app: &mut App) {
         .collect::<Vec<v2>>();
     directions.pop();
 
-    let head_dir = app
-        .query_mut::<Direction>()
-        .iter()
-        .next()
-        .unwrap();
+    let head_dir = app.query_mut::<Direction>().iter().next().unwrap();
     head_dir.set_direction(head_dir.buffered_dir());
 
     for (i, d) in app.query_mut::<Direction>().iter().skip(1).enumerate() {
@@ -236,14 +235,18 @@ fn update_snake_orientation(app: &mut App) {
         });
 }
 
-fn update_snake_textures(app: &mut App) {    
+fn update_snake_textures(app: &mut App) {
     let directions = app
         .query::<Direction>()
         .iter()
         .map(|d| d.direction())
         .collect::<Vec<v2>>();
 
-    let mut renders = app.query_mut::<Render2D>().with::<Snake>().iter().collect::<Vec<&mut Render2D>>(); 
+    let mut renders = app
+        .query_mut::<Render2D>()
+        .with::<Snake>()
+        .iter()
+        .collect::<Vec<&mut Render2D>>();
     for i in 0..renders.len() {
         if i == 0 {
             renders[i].set_texture("res/textures/snake_head.png");
@@ -255,28 +258,28 @@ fn update_snake_textures(app: &mut App) {
             continue;
         }
 
-        let det = directions[i].x() * directions[i+1].y() - directions[i].y() * directions[i+1].x();
+        let det =
+            directions[i].x() * directions[i + 1].y() - directions[i].y() * directions[i + 1].x();
         if det < 0.0 {
             renders[i].set_texture("res/textures/snake_turn_left.png");
             continue;
-        }
-        else if det > 0.0 {
+        } else if det > 0.0 {
             renders[i].set_texture("res/textures/snake_turn_right.png");
             continue;
-        }
-        else {
+        } else {
             renders[i].set_texture("res/textures/snake_body.png");
         }
-
     }
 }
 
 fn update_snake_position(app: &mut App) {
     let cell_size = app.query::<Grid>().iter().next().unwrap().cell_size();
 
-    app.query_mut::<(Transform2D, Direction)>().with::<Snake>().for_each(|t, d| {
-        t.translate(d.direction()*cell_size);
-    });
+    app.query_mut::<(Transform2D, Direction)>()
+        .with::<Snake>()
+        .for_each(|t, d| {
+            t.translate(d.direction() * cell_size);
+        });
 }
 
 fn handle_input(app: &mut App, head_pos: v2) {
