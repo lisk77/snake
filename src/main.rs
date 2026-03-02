@@ -64,6 +64,24 @@ impl Grid {
     }
 }
 
+struct GameState {
+    game_over: bool,
+}
+
+impl GameState {
+    pub fn new() -> Self {
+        Self { game_over: false }
+    }
+
+    pub fn is_game_over(&self) -> bool {
+        self.game_over
+    }
+
+    pub fn set_game_over(&mut self, game_over: bool) {
+        self.game_over = game_over;
+    }
+}
+
 bundle!(Camera {
     transform: Transform2D,
     camera: Camera2D
@@ -100,6 +118,9 @@ fn setup(app: &mut App, renderer: &mut RenderHandle2D) {
     app.register_component::<Grid>();
     app.register_component::<Rectangle2D>();
     app.register_component::<Timer>();
+
+    app.load_audio("nom", "res/sounds/nom.wav");
+    app.load_audio("bonk", "res/sounds/bonk.wav");
 
     let cells: u8 = 16;
     let cell_size: f32 = 16.0;
@@ -178,6 +199,13 @@ fn update(app: &mut App, renderer: &mut RenderHandle2D, dt: f32) {
     if !snake_out_of_bounds(app) && !is_snake_body_colliding(app) {
         handle_input(app, head_pos);
         update_snake(app);
+    }
+    else {
+        if !app.game_state::<GameState>().unwrap().is_game_over() {
+            app.play_audio("bonk", false);
+            app.set_volume("bonk", 0.5);
+            app.game_state_mut::<GameState>().unwrap().set_game_over(true);
+        }
     }
     renderer.render_scene_2d(app.scene_mut());
 }
@@ -391,6 +419,9 @@ fn handle_apple_collision(app: &mut App) {
     snake_head_collider
         .is_colliding(apple_collider.unwrap())
         .then(|| {
+            app.play_audio("nom", false);
+            app.set_volume("nom", 0.5);
+
             move_apple(app);
 
             let (tail_transform, tail_dir) = app.query::<(Transform2D, Direction)>().with::<Snake>().iter().last().unwrap();
@@ -444,5 +475,6 @@ fn main() {
         .with_preset(App2D)
         .with_title("Snake")
         .with_clear_color(sRgba::<u8>::from_hex("1f6c1cff"))
+        .with_game_state(GameState::new())
         .run::<Renderer2D>(setup, update)
 }
