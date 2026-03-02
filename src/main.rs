@@ -26,10 +26,6 @@ impl Direction {
         self.direction = self.buffered_dir
     }
 
-    pub fn buffered_dir(&self) -> v2 {
-        self.buffered_dir
-    }
-
     pub fn set_buffered_dir(&mut self, dir: v2) {
         self.buffered_dir = dir;
     }
@@ -57,10 +53,6 @@ impl Grid {
 
     pub fn cells(&self) -> u8 {
         self.cells
-    }
-
-    pub fn bounds(&self) -> f32 {
-        self.bounds
     }
 }
 
@@ -185,7 +177,7 @@ fn setup(app: &mut App, renderer: &mut RenderHandle2D) {
     move_apple(app);
 }
 
-fn update(app: &mut App, renderer: &mut RenderHandle2D, dt: f32) {
+fn update(app: &mut App, renderer: &mut RenderHandle2D, _dt: f32) {
     let head_pos = app
         .query::<Transform2D>()
         .with::<Snake>()
@@ -283,7 +275,7 @@ fn update_snake_direction(app: &mut App) {
     directions.pop();
 
     let head_dir = app.query_mut::<Direction>().iter().next().unwrap();
-    head_dir.set_direction(head_dir.buffered_dir());
+    head_dir.update();
 
     for (i, d) in app.query_mut::<Direction>().iter().skip(1).enumerate() {
         d.set_direction(directions[i]);
