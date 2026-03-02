@@ -104,7 +104,6 @@ fn setup(app: &mut App, renderer: &mut RenderHandle2D) {
     let cells: u8 = 16;
     let cell_size: f32 = 16.0;
     let grid_size: f32 = (cells as f32) * cell_size;
-    let half_cells = (cells/2) as i8;
 
     let timer_entity = app.new_entity();
     let mut timer_component = Timer::new();
@@ -176,7 +175,7 @@ fn update(app: &mut App, renderer: &mut RenderHandle2D, dt: f32) {
         .as_vec();
 
     resize_game_camera(app, renderer);
-    if !snake_out_of_bounds(app) {
+    if !snake_out_of_bounds(app) && !is_snake_body_colliding(app) {
         handle_input(app, head_pos);
         update_snake(app);
     }
@@ -237,7 +236,7 @@ fn update_snake(app: &mut App) {
     update_snake_direction(app);
     update_snake_colliders(app);
     
-    if !snake_out_of_bounds(app) {
+    if !snake_out_of_bounds(app) && !is_snake_body_colliding(app) {
         update_snake_orientation(app);
         handle_apple_collision(app);
         update_snake_position(app);
@@ -361,7 +360,6 @@ fn move_apple(app: &mut App) {
     let half_cells = (app.query::<Grid>().iter().next().unwrap().cells()/2) as i8;
     let snake = app.query::<Transform2D>().with::<Snake>().iter().map(|t| t.position().as_vec()).collect::<Vec<v2>>();
 
-
     let x = rand::random_range(-half_cells..half_cells) as f32 * cell_size;
     let y = rand::random_range(-half_cells..half_cells) as f32 * cell_size;
     
@@ -409,6 +407,13 @@ fn handle_apple_collision(app: &mut App) {
                 render: Render2D::new("res/textures/snake_body.png", true, v2::new(1.0, 1.0), 1),
             });
     });
+}
+
+fn is_snake_body_colliding(app: &mut App) -> bool {
+    let head_collider = app.query::<Rectangle2D>().with::<Snake>().iter().next().unwrap();
+    let mut body_colliders = app.query::<Rectangle2D>().with::<Snake>().iter().skip(1);
+
+    body_colliders.any(|b| head_collider.is_colliding(b))
 }
 
 fn handle_input(app: &mut App, head_pos: v2) {
