@@ -4,6 +4,10 @@ use comet::prelude::*;
 struct Snake;
 
 #[derive(Component)]
+struct Apple;
+
+
+#[derive(Component)]
 struct Direction {
     direction: v2,
     buffered_dir: v2,
@@ -73,6 +77,13 @@ bundle!(SnakeSegment {
     render: Render2D,
 });
 
+bundle!(AppleEntity {
+    apple: Apple,
+    transform: Transform2D,
+    collider: Rectangle2D,
+    render: Render2D
+});
+
 bundle!(Field {
     grid: Grid,
     transform: Transform2D,
@@ -84,6 +95,7 @@ fn setup(app: &mut App, renderer: &mut RenderHandle2D) {
     renderer.init_atlas();
 
     app.register_component::<Snake>();
+    app.register_component::<Apple>();
     app.register_component::<Direction>();
     app.register_component::<Grid>();
     app.register_component::<Rectangle2D>();
@@ -92,6 +104,7 @@ fn setup(app: &mut App, renderer: &mut RenderHandle2D) {
     let cells: u8 = 16;
     let cell_size: f32 = 16.0;
     let grid_size: f32 = (cells as f32) * cell_size;
+    let half_cells = (cells/2) as i8;
 
     let timer_entity = app.new_entity();
     let mut timer_component = Timer::new();
@@ -107,14 +120,32 @@ fn setup(app: &mut App, renderer: &mut RenderHandle2D) {
     });
 
     let mut dir = Direction::new();
+    dir.set_direction(v2::Y);
     dir.set_buffered_dir(v2::Y);
 
     app.spawn_bundle(SnakeSegment {
         snake: Snake,
-        dir,
+        dir: dir.clone(),
         transform: Transform2D::new(),
         collider: Rectangle2D::with_size(cell_size, cell_size),
         render: Render2D::new("res/textures/snake_head.png", true, v2::new(1.0, 1.0), 1),
+    });
+
+    let tail_pos = Position2D::from_vec(v2::new(0.0, -cell_size));
+    let tail_transform = Transform2D::with_position(tail_pos.clone());
+    let mut tail_collider = Rectangle2D::with_size(cell_size, cell_size);
+    tail_collider.set_position(tail_pos);
+
+    let mut tail_dir = Direction::new();
+    tail_dir.set_direction(v2::Y);
+    
+
+    app.spawn_bundle(SnakeSegment {
+        snake: Snake,
+        dir: tail_dir,
+        transform: tail_transform,
+        collider: tail_collider,
+        render: Render2D::new("res/textures/snake_tail.png", true, v2::new(1.0, 1.0), 1),
     });
 
     app.spawn_bundle(Field {
@@ -123,6 +154,15 @@ fn setup(app: &mut App, renderer: &mut RenderHandle2D) {
         collider: Rectangle2D::with_size(grid_size, grid_size),
         render: Render2D::with_texture("res/textures/field.png"),
     });
+    
+    app.spawn_bundle(AppleEntity {
+        apple: Apple,
+        transform: Transform2D::new(),
+        collider: Rectangle2D::with_size(cell_size, cell_size),
+        render: Render2D::new("res/textures/apple.png", true, v2::new(1.0, 1.0), 1),
+    });
+
+    move_apple(app);
 }
 
 fn update(app: &mut App, renderer: &mut RenderHandle2D, dt: f32) {
@@ -195,11 +235,13 @@ fn update_snake(app: &mut App) {
     }
 
     update_snake_direction(app);
-    update_snake_orientation(app);
     update_snake_colliders(app);
+    
     if !snake_out_of_bounds(app) {
-        update_snake_textures(app);
+        update_snake_orientation(app);
+        handle_apple_collision(app);
         update_snake_position(app);
+        update_snake_textures(app);
     }
 
     app.query_mut::<Timer>().iter().next().unwrap().reset();
@@ -231,50 +273,55 @@ fn update_snake_orientation(app: &mut App) {
 }
 
 fn update_snake_textures(app: &mut App) {
+    let snake_size = app.query::<Snake>().iter().count();
     let directions = app
         .query::<Direction>()
         .iter()
         .map(|d| d.direction())
         .collect::<Vec<v2>>();
-
-    let mut renders = app
-        .query_mut::<Render2D>()
-        .with::<Snake>()
-        .iter()
-        .collect::<Vec<&mut Render2D>>();
-    for i in 0..renders.len() {
+    
+    for (i, (r, t)) in app.query_mut::<(Render2D, Transform2D)>().with::<Snake>().iter().enumerate() {
         if i == 0 {
-            renders[i].set_texture("res/textures/snake_head.png");
+            r.set_texture("res/textures/snake_head.png");
             continue;
         }
 
-        if i == renders.len() {
-            renders[i].set_texture("res/textures/snake_tail.png");
+        if i == (snake_size - 1) {
+            r.set_texture("res/textures/snake_tail.png");
+            t.set_rotation(directions[i-1].y().atan2(directions[i-1].x()) - std::f32::consts::FRAC_PI_2);
             continue;
         }
 
-        let det =
-            directions[i].x() * directions[i + 1].y() - directions[i].y() * directions[i + 1].x();
-        if det < 0.0 {
-            renders[i].set_texture("res/textures/snake_turn_left.png");
-            continue;
-        } else if det > 0.0 {
-            renders[i].set_texture("res/textures/snake_turn_right.png");
-            continue;
+        r.set_texture("res/textures/snake_body.png");
+
+        let det = directions[i].x() * directions[i-1].y() - directions[i].y() * directions[i-1].x();
+        if det > 0.0 {
+            r.set_texture("res/textures/snake_turn_left.png");
+        } else if det == 0.0 {
+            r.set_texture("res/textures/snake_body.png");
         } else {
-            renders[i].set_texture("res/textures/snake_body.png");
+            r.set_texture("res/textures/snake_turn_right.png");
         }
     }
 }
 
 fn update_snake_position(app: &mut App) {
     let cell_size = app.query::<Grid>().iter().next().unwrap().cell_size();
-
-    app.query_mut::<(Transform2D, Direction)>()
+    let positions = app
+        .query::<Transform2D>()
         .with::<Snake>()
-        .for_each(|t, d| {
-            t.translate(d.direction() * cell_size);
-        });
+        .iter()
+        .map(|t| t.position().as_vec())
+        .collect::<Vec<v2>>();
+
+    for (i, (t, d)) in app
+        .query_mut::<(Transform2D, Direction)>()
+        .with::<Snake>()
+        .iter()
+        .enumerate()
+    {
+        t.set_position(Position2D::from_vec(d.direction * cell_size + positions[i]));
+    }
 }
 
 fn update_snake_colliders(app: &mut App) {
@@ -307,6 +354,61 @@ fn snake_out_of_bounds(app: &mut App) -> bool {
         .unwrap();
 
     !snake_head_collider.is_colliding(field_collider)
+}
+
+fn move_apple(app: &mut App) {
+    let cell_size = app.query::<Grid>().iter().next().unwrap().cell_size();
+    let half_cells = (app.query::<Grid>().iter().next().unwrap().cells()/2) as i8;
+    let snake = app.query::<Transform2D>().with::<Snake>().iter().map(|t| t.position().as_vec()).collect::<Vec<v2>>();
+
+
+    let x = rand::random_range(-half_cells..half_cells) as f32 * cell_size;
+    let y = rand::random_range(-half_cells..half_cells) as f32 * cell_size;
+    
+    let mut apple_pos = Position2D::from_vec(v2::new(x, y));
+    while snake.iter().any(|&s| s == apple_pos.as_vec()) {
+        let x = rand::random_range(-half_cells..half_cells) as f32 * cell_size;
+        let y = rand::random_range(-half_cells..half_cells) as f32 * cell_size;
+        apple_pos = Position2D::from_vec(v2::new(x, y));
+    }
+
+    app.query_mut::<(Transform2D, Rectangle2D)>()
+        .with::<Apple>()
+        .for_each(|t, r| {
+            t.set_position(apple_pos.clone());
+            r.set_position(apple_pos.clone());
+        });
+}
+
+fn handle_apple_collision(app: &mut App) {
+    let grid_cell_size = app.query::<Grid>().iter().next().unwrap().cell_size();
+    let apple_collider = app.query::<Rectangle2D>().with::<Apple>().iter().next();
+    let snake_head_collider = app
+        .query::<Rectangle2D>()
+        .with::<Snake>()
+        .iter()
+        .next()
+        .unwrap();
+
+    snake_head_collider
+        .is_colliding(apple_collider.unwrap())
+        .then(|| {
+            move_apple(app);
+
+            let (tail_transform, tail_dir) = app.query::<(Transform2D, Direction)>().with::<Snake>().iter().last().unwrap();
+            let tail_pos = tail_transform.position().as_vec();
+            let new_tail_pos = tail_pos - tail_dir.direction() * grid_cell_size;
+            let mut new_tail_dir = Direction::new();
+            new_tail_dir.set_direction(tail_dir.direction());
+
+            app.spawn_bundle(SnakeSegment {
+                snake: Snake,
+                dir: new_tail_dir,
+                transform: Transform2D::with_position(Position2D::from_vec(new_tail_pos)),
+                collider: Rectangle2D::with_size(16.0, 16.0),
+                render: Render2D::new("res/textures/snake_body.png", true, v2::new(1.0, 1.0), 1),
+            });
+    });
 }
 
 fn handle_input(app: &mut App, head_pos: v2) {
