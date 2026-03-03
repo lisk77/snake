@@ -1,15 +1,15 @@
 use comet::prelude::*;
 
-#[derive(Component)]
+#[derive(Tag)]
 struct Snake;
 
-#[derive(Component)]
+#[derive(Tag)]
 struct Apple;
 
-#[derive(Component)]
+#[derive(Tag)]
 struct GameOverText;
 
-#[derive(Component)]
+#[derive(Tag)]
 struct WinText;
 
 #[derive(Component)]
