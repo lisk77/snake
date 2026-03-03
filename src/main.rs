@@ -187,15 +187,21 @@ fn setup(app: &mut App, renderer: &mut RenderHandle2D) {
         render: Render2D::new("res/textures/apple.png", true, v2::new(1.0, 1.0), 1),
     });
 
+    let game_over_text_bounds = renderer.precompute_text_bounds("Game Over!", "res/fonts/PressStart2P-Regular.ttf", 16.0);
+    let win_text_bounds = renderer.precompute_text_bounds("You Win!", "res/fonts/PressStart2P-Regular.ttf", 16.0);
+
+    let game_over_text_transform = Transform2D::with_position(Position2D::from_vec(-game_over_text_bounds/2.0));
+    let win_text_transform = Transform2D::with_position(Position2D::from_vec(-win_text_bounds/2.0));
+
     let game_over_text = app.spawn_bundle(GameText {
-        transform: Transform2D::new(),
+        transform: game_over_text_transform,
         render: Text::new("Game Over!", "res/fonts/PressStart2P-Regular.ttf", 16.0, false, sRgba::<f32>::from_hex("#ff0000ff")),
     });
 
     app.add_component(game_over_text, GameOverText);
 
     let win_text = app.spawn_bundle(GameText {
-        transform: Transform2D::new(),
+        transform: win_text_transform,
         render: Text::new("You Win!", "res/fonts/PressStart2P-Regular.ttf", 16.0, false, sRgba::<f32>::from_hex("#0000ffff")),
     });
 
