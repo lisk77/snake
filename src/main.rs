@@ -6,6 +6,11 @@ struct Snake;
 #[derive(Component)]
 struct Apple;
 
+#[derive(Component)]
+struct GameOverText;
+
+#[derive(Component)]
+struct WinText;
 
 #[derive(Component)]
 struct Direction {
@@ -101,6 +106,11 @@ bundle!(Field {
     render: Render2D
 });
 
+bundle!(GameText {
+    transform: Transform2D,
+    render: Text
+});
+
 fn setup(app: &mut App, renderer: &mut RenderHandle2D) {
     renderer.init_atlas();
 
@@ -110,9 +120,13 @@ fn setup(app: &mut App, renderer: &mut RenderHandle2D) {
     app.register_component::<Grid>();
     app.register_component::<Rectangle2D>();
     app.register_component::<Timer>();
+    app.register_component::<GameOverText>();
+    app.register_component::<WinText>();
 
     app.load_audio("nom", "res/sounds/nom.wav");
     app.load_audio("bonk", "res/sounds/bonk.wav");
+
+    renderer.load_font("res/fonts/PressStart2P-Regular.ttf", 77.0);
 
     let cells: u8 = 16;
     let cell_size: f32 = 16.0;
@@ -150,7 +164,6 @@ fn setup(app: &mut App, renderer: &mut RenderHandle2D) {
 
     let mut tail_dir = Direction::new();
     tail_dir.set_direction(v2::Y);
-    
 
     app.spawn_bundle(SnakeSegment {
         snake: Snake,
@@ -173,6 +186,20 @@ fn setup(app: &mut App, renderer: &mut RenderHandle2D) {
         collider: Rectangle2D::with_size(cell_size, cell_size),
         render: Render2D::new("res/textures/apple.png", true, v2::new(1.0, 1.0), 1),
     });
+
+    let game_over_text = app.spawn_bundle(GameText {
+        transform: Transform2D::new(),
+        render: Text::new("Game Over!", "res/fonts/PressStart2P-Regular.ttf", 16.0, false, sRgba::<f32>::from_hex("#ff0000ff")),
+    });
+
+    app.add_component(game_over_text, GameOverText);
+
+    let win_text = app.spawn_bundle(GameText {
+        transform: Transform2D::new(),
+        render: Text::new("You Win!", "res/fonts/PressStart2P-Regular.ttf", 16.0, false, sRgba::<f32>::from_hex("#0000ffff")),
+    });
+
+    app.add_component(win_text, WinText);
 
     move_apple(app);
 }
@@ -197,6 +224,7 @@ fn update(app: &mut App, renderer: &mut RenderHandle2D, _dt: f32) {
             app.play_audio("bonk", false);
             app.set_volume("bonk", 0.5);
             app.game_state_mut::<GameState>().unwrap().set_game_over(true);
+            app.query_mut::<Text>().with::<GameOverText>().for_each(|t| t.set_visibility(true));
         }
     }
     renderer.render_scene_2d(app.scene_mut());
@@ -437,6 +465,13 @@ fn is_snake_body_colliding(app: &mut App) -> bool {
     let mut body_colliders = app.query::<Rectangle2D>().with::<Snake>().iter().skip(1);
 
     body_colliders.any(|b| head_collider.is_colliding(b))
+}
+
+fn winning_condition_met(app: &mut App) -> bool {
+    let snake_size = app.query::<Snake>().iter().count();
+    let grid_cells = app.query::<Grid>().iter().next().unwrap().cells();
+
+    snake_size as u8 == grid_cells * grid_cells
 }
 
 fn handle_input(app: &mut App, head_pos: v2) {
