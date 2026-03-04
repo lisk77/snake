@@ -63,19 +63,28 @@ impl Grid {
 
 struct GameState {
     game_over: bool,
+    win: bool
 }
 
 impl GameState {
     pub fn new() -> Self {
-        Self { game_over: false }
+        Self { game_over: false, win: false }
     }
 
     pub fn is_game_over(&self) -> bool {
         self.game_over
     }
 
+    pub fn has_won(&self) -> bool {
+        self.win
+    }
+
     pub fn set_game_over(&mut self, game_over: bool) {
         self.game_over = game_over;
+    }
+
+    pub fn set_win(&mut self, win: bool) {
+        self.win = win;
     }
 }
 
@@ -211,26 +220,33 @@ fn setup(app: &mut App, renderer: &mut RenderHandle2D) {
 }
 
 fn update(app: &mut App, renderer: &mut RenderHandle2D, _dt: f32) {
-    let head_pos = app
-        .query::<Transform2D>()
-        .with::<Snake>()
-        .iter()
-        .next()
-        .unwrap()
-        .position()
-        .as_vec();
+    if !app.game_state::<GameState>().unwrap().has_won() {
+        let head_pos = app
+            .query::<Transform2D>()
+            .with::<Snake>()
+            .iter()
+            .next()
+            .unwrap()
+            .position()
+            .as_vec();
 
-    resize_game_camera(app, renderer);
-    if !snake_out_of_bounds(app) && !is_snake_body_colliding(app) {
-        handle_input(app, head_pos);
-        update_snake(app);
-    }
-    else {
-        if !app.game_state::<GameState>().unwrap().is_game_over() {
-            app.play_audio("bonk", false);
-            app.set_volume("bonk", 0.5);
-            app.game_state_mut::<GameState>().unwrap().set_game_over(true);
-            app.query_mut::<Text>().with::<GameOverText>().for_each(|t| t.set_visibility(true));
+        resize_game_camera(app, renderer);
+        if !snake_out_of_bounds(app) && !is_snake_body_colliding(app) {
+            handle_input(app, head_pos);
+            update_snake(app);
+        }
+        else {
+            if !app.game_state::<GameState>().unwrap().is_game_over() {
+                app.play_audio("bonk", false);
+                app.set_volume("bonk", 0.5);
+                app.game_state_mut::<GameState>().unwrap().set_game_over(true);
+                app.query_mut::<Text>().with::<GameOverText>().for_each(|t| t.set_visibility(true));
+            }
+        }
+        if winning_condition_met(app) {
+            debug!("hello there");
+            app.game_state_mut::<GameState>().unwrap().set_win(true);
+            app.query_mut::<Text>().with::<WinText>().for_each(|t| t.set_visibility(true));
         }
     }
     renderer.render_scene_2d(app.scene_mut());
@@ -475,9 +491,9 @@ fn is_snake_body_colliding(app: &mut App) -> bool {
 
 fn winning_condition_met(app: &mut App) -> bool {
     let snake_size = app.query::<Snake>().iter().count();
-    let grid_cells = app.query::<Grid>().iter().next().unwrap().cells();
+    let grid_cells = app.query::<Grid>().iter().next().unwrap().cells() as usize;
 
-    snake_size as u8 == grid_cells * grid_cells
+    snake_size == grid_cells * grid_cells
 }
 
 fn handle_input(app: &mut App, head_pos: v2) {
