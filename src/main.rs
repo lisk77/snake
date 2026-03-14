@@ -138,7 +138,7 @@ fn setup(app: &mut App, renderer: &mut RenderHandle2D) {
     app.load_audio("nom", "res/sounds/nom.wav");
     app.load_audio("bonk", "res/sounds/bonk.wav");
 
-    renderer.load_font("res/fonts/PressStart2P-Regular.ttf", 77.0);
+    renderer.load_font("res/fonts/PublicPixel.ttf", 77.0);
 
     let cells: u8 = 16;
     let cell_size: f32 = 16.0;
@@ -200,9 +200,9 @@ fn setup(app: &mut App, renderer: &mut RenderHandle2D) {
     });
 
     let game_over_text_bounds =
-        renderer.precompute_text_bounds("Game Over!", "res/fonts/PressStart2P-Regular.ttf", 16.0);
+        renderer.precompute_text_bounds("Game Over!", "res/fonts/PublicPixel.ttf", 16.0);
     let win_text_bounds =
-        renderer.precompute_text_bounds("You Win!", "res/fonts/PressStart2P-Regular.ttf", 16.0);
+        renderer.precompute_text_bounds("You Win!", "res/fonts/PublicPixel.ttf", 16.0);
 
     let game_over_text_transform =
         Transform2D::with_position(Position2D::from_vec(-game_over_text_bounds / 2.0));
@@ -213,7 +213,7 @@ fn setup(app: &mut App, renderer: &mut RenderHandle2D) {
         transform: game_over_text_transform,
         render: Text::new(
             "Game Over!",
-            "res/fonts/PressStart2P-Regular.ttf",
+            "res/fonts/PublicPixel.ttf",
             16.0,
             false,
             sRgba::<f32>::from_hex("#ff0000ff"),
@@ -226,7 +226,7 @@ fn setup(app: &mut App, renderer: &mut RenderHandle2D) {
         transform: win_text_transform,
         render: Text::new(
             "You Win!",
-            "res/fonts/PressStart2P-Regular.ttf",
+            "res/fonts/PublicPixel.ttf",
             16.0,
             false,
             sRgba::<f32>::from_hex("#0000ffff"),
