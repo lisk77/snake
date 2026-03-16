@@ -91,11 +91,6 @@ impl GameState {
     }
 }
 
-bundle!(Camera {
-    transform: Transform2D,
-    camera: Camera2D
-});
-
 bundle!(SnakeSegment {
     snake: Snake,
     dir: Direction,
@@ -104,37 +99,19 @@ bundle!(SnakeSegment {
     render: Render2D,
 });
 
-bundle!(AppleEntity {
-    apple: Apple,
-    transform: Transform2D,
-    collider: Rectangle2D,
-    render: Render2D
-});
-
-bundle!(Field {
-    grid: Grid,
-    transform: Transform2D,
-    collider: Rectangle2D,
-    render: Render2D
-});
-
-bundle!(GameText {
-    transform: Transform2D,
-    render: Text
-});
-
 fn setup(app: &mut App, renderer: &mut RenderHandle2D) {
     renderer.init_atlas();
 
-    app.register_component::<Snake>();
-    app.register_component::<Apple>();
-    app.register_component::<Direction>();
-    app.register_component::<Grid>();
-    app.register_component::<Rectangle2D>();
-    app.register_component::<Timer>();
-    app.register_component::<GameOverText>();
-    app.register_component::<WinText>();
-
+    app.register_components::<(
+        Snake,
+        Apple,
+        Direction,
+        Grid,
+        Rectangle2D,
+        Timer,
+        GameOverText,
+        WinText,
+    )>();
     app.load_audio("nom", "res/sounds/nom.wav");
     app.load_audio("bonk", "res/sounds/bonk.wav");
 
@@ -144,18 +121,14 @@ fn setup(app: &mut App, renderer: &mut RenderHandle2D) {
     let cell_size: f32 = 16.0;
     let grid_size: f32 = (cells as f32) * cell_size;
 
-    let timer_entity = app.new_entity();
     let mut timer_component = Timer::new();
-
     timer_component.set_interval(0.5);
-    app.add_component(timer_entity, timer_component);
+
+    app.spawn(timer_component);
 
     app.add_tick_system(update_timers);
 
-    app.spawn_bundle(Camera {
-        transform: Transform2D::new(),
-        camera: Camera2D::new(v2::new(1.0, 1.0), 1.0, 1),
-    });
+    app.spawn((Transform2D::new(), Camera2D::new(v2::new(1.0, 1.0), 1.0, 1)));
 
     let mut dir = Direction::new();
     dir.set_direction(v2::Y);
@@ -185,19 +158,19 @@ fn setup(app: &mut App, renderer: &mut RenderHandle2D) {
         render: Render2D::new("res/textures/snake_tail.png", true, v2::new(1.0, 1.0), 1),
     });
 
-    app.spawn_bundle(Field {
-        grid: Grid::new(cell_size, cells),
-        transform: Transform2D::new(),
-        collider: Rectangle2D::with_size(grid_size, grid_size),
-        render: Render2D::with_texture("res/textures/field.png"),
-    });
+    app.spawn((
+        Grid::new(cell_size, cells),
+        Transform2D::new(),
+        Rectangle2D::with_size(grid_size, grid_size),
+        Render2D::with_texture("res/textures/field.png"),
+    ));
 
-    app.spawn_bundle(AppleEntity {
-        apple: Apple,
-        transform: Transform2D::new(),
-        collider: Rectangle2D::with_size(cell_size, cell_size),
-        render: Render2D::new("res/textures/apple.png", true, v2::new(1.0, 1.0), 1),
-    });
+    app.spawn((
+        Apple,
+        Transform2D::new(),
+        Rectangle2D::with_size(cell_size, cell_size),
+        Render2D::new("res/textures/apple.png", true, v2::new(1.0, 1.0), 1),
+    ));
 
     let game_over_text_bounds =
         renderer.precompute_text_bounds("Game Over!", "res/fonts/PublicPixel.ttf", 16.0);
@@ -209,31 +182,29 @@ fn setup(app: &mut App, renderer: &mut RenderHandle2D) {
     let win_text_transform =
         Transform2D::with_position(Position2D::from_vec(-win_text_bounds / 2.0));
 
-    let game_over_text = app.spawn_bundle(GameText {
-        transform: game_over_text_transform,
-        render: Text::new(
+    app.spawn((
+        GameOverText,
+        game_over_text_transform,
+        Text::new(
             "Game Over!",
             "res/fonts/PublicPixel.ttf",
             16.0,
             false,
             sRgba::<f32>::from_hex("#ff0000ff"),
         ),
-    });
+    ));
 
-    app.add_component(game_over_text, GameOverText);
-
-    let win_text = app.spawn_bundle(GameText {
-        transform: win_text_transform,
-        render: Text::new(
-            "You Win!",
+    app.spawn((
+        WinText,
+        win_text_transform,
+        Text::new(
+            "Game Over!",
             "res/fonts/PublicPixel.ttf",
             16.0,
             false,
             sRgba::<f32>::from_hex("#0000ffff"),
         ),
-    });
-
-    app.add_component(win_text, WinText);
+    ));
 
     move_apple(app);
 }
