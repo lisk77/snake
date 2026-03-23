@@ -112,10 +112,10 @@ fn setup(app: &mut App, renderer: &mut RenderHandle2D) {
         GameOverText,
         WinText,
     )>();
-    app.load_audio("nom", "res/sounds/nom.wav");
-    app.load_audio("bonk", "res/sounds/bonk.wav");
+    app.load_audio("nom", "res://sounds/nom.wav");
+    app.load_audio("bonk", "res://sounds/bonk.wav");
 
-    renderer.load_font("res/fonts/PublicPixel.ttf", 77.0);
+    let font: Asset<Font> = app.load("res://fonts/PublicPixel.ttf");
 
     let cells: u8 = 16;
     let cell_size: f32 = 16.0;
@@ -139,7 +139,7 @@ fn setup(app: &mut App, renderer: &mut RenderHandle2D) {
         dir: dir.clone(),
         transform: Transform2D::new(),
         collider: Rectangle2D::with_size(cell_size, cell_size),
-        render: Render2D::new("res/textures/snake_head.png", true, v2::new(1.0, 1.0), 1),
+        render: Render2D::new("res://textures/snake_head.png", true, v2::new(1.0, 1.0), 1),
     });
 
     let tail_pos = Position2D::from_vec(v2::new(0.0, -cell_size));
@@ -155,27 +155,25 @@ fn setup(app: &mut App, renderer: &mut RenderHandle2D) {
         dir: tail_dir,
         transform: tail_transform,
         collider: tail_collider,
-        render: Render2D::new("res/textures/snake_tail.png", true, v2::new(1.0, 1.0), 1),
+        render: Render2D::new("res://textures/snake_tail.png", true, v2::new(1.0, 1.0), 1),
     });
 
     app.spawn((
         Grid::new(cell_size, cells),
         Transform2D::new(),
         Rectangle2D::with_size(grid_size, grid_size),
-        Render2D::with_texture("res/textures/field.png"),
+        Render2D::with_texture("res://textures/field.png"),
     ));
 
     app.spawn((
         Apple,
         Transform2D::new(),
         Rectangle2D::with_size(cell_size, cell_size),
-        Render2D::new("res/textures/apple.png", true, v2::new(1.0, 1.0), 1),
+        Render2D::new("res://textures/apple.png", true, v2::new(1.0, 1.0), 1),
     ));
 
-    let game_over_text_bounds =
-        renderer.precompute_text_bounds("Game Over!", "res/fonts/PublicPixel.ttf", 16.0);
-    let win_text_bounds =
-        renderer.precompute_text_bounds("You Win!", "res/fonts/PublicPixel.ttf", 16.0);
+    let game_over_text_bounds = renderer.precompute_text_bounds("Game Over!", font, 16.0);
+    let win_text_bounds = renderer.precompute_text_bounds("You Win!", font, 16.0);
 
     let game_over_text_transform =
         Transform2D::with_position(Position2D::from_vec(-game_over_text_bounds / 2.0));
@@ -187,7 +185,7 @@ fn setup(app: &mut App, renderer: &mut RenderHandle2D) {
         game_over_text_transform,
         Text::new(
             "Game Over!",
-            "res/fonts/PublicPixel.ttf",
+            font,
             16.0,
             false,
             sRgba::<f32>::from_hex("#ff0000ff"),
@@ -199,7 +197,7 @@ fn setup(app: &mut App, renderer: &mut RenderHandle2D) {
         win_text_transform,
         Text::new(
             "Game Over!",
-            "res/fonts/PublicPixel.ttf",
+            font,
             16.0,
             false,
             sRgba::<f32>::from_hex("#0000ffff"),
@@ -347,28 +345,28 @@ fn update_snake_textures(app: &mut App) {
         .enumerate()
     {
         if i == 0 {
-            r.set_texture("res/textures/snake_head.png");
+            r.set_texture("res://textures/snake_head.png");
             continue;
         }
 
         if i == (snake_size - 1) {
-            r.set_texture("res/textures/snake_tail.png");
+            r.set_texture("res://textures/snake_tail.png");
             t.set_rotation(
                 directions[i - 1].y().atan2(directions[i - 1].x()) - std::f32::consts::FRAC_PI_2,
             );
             continue;
         }
 
-        r.set_texture("res/textures/snake_body.png");
+        r.set_texture("res://textures/snake_body.png");
 
         let det =
             directions[i].x() * directions[i - 1].y() - directions[i].y() * directions[i - 1].x();
         if det > 0.0 {
-            r.set_texture("res/textures/snake_turn_left.png");
+            r.set_texture("res://textures/snake_turn_left.png");
         } else if det == 0.0 {
-            r.set_texture("res/textures/snake_body.png");
+            r.set_texture("res://textures/snake_body.png");
         } else {
-            r.set_texture("res/textures/snake_turn_right.png");
+            r.set_texture("res://textures/snake_turn_right.png");
         }
     }
 }
@@ -486,7 +484,7 @@ fn handle_apple_collision(app: &mut App) {
             dir: new_tail_dir,
             transform: Transform2D::with_position(Position2D::from_vec(new_tail_pos)),
             collider: Rectangle2D::with_size(16.0, 16.0),
-            render: Render2D::new("res/textures/snake_body.png", true, v2::new(1.0, 1.0), 1),
+            render: Render2D::new("res://textures/snake_body.png", true, v2::new(1.0, 1.0), 1),
         });
     });
 }
