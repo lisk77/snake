@@ -100,7 +100,7 @@ bundle!(SnakeSegment {
 });
 
 fn setup(app: &mut App, renderer: &mut RenderHandle2D) {
-    renderer.init_atlas();
+    app.add_context(GameState::new());
 
     app.register_components::<(
         Snake,
@@ -112,8 +112,8 @@ fn setup(app: &mut App, renderer: &mut RenderHandle2D) {
         GameOverText,
         WinText,
     )>();
-    app.load_audio("nom", "res://sounds/nom.wav");
-    app.load_audio("bonk", "res://sounds/bonk.wav");
+
+    app.load_assets::<AudioClip>(vec!["res://sounds/nom.wav", "res://sounds/bonk.wav"]);
 
     let font: Asset<Font> = app.load("res://fonts/PublicPixel.ttf");
 
@@ -208,7 +208,7 @@ fn setup(app: &mut App, renderer: &mut RenderHandle2D) {
 }
 
 fn update(app: &mut App, renderer: &mut RenderHandle2D, _dt: f32) {
-    if !app.game_state::<GameState>().unwrap().has_won() {
+    if !app.context::<GameState>().has_won() {
         let head_pos = app
             .query::<&Transform2D, With<Snake>>()
             .iter()
@@ -222,19 +222,16 @@ fn update(app: &mut App, renderer: &mut RenderHandle2D, _dt: f32) {
             handle_input(app, head_pos);
             update_snake(app);
         } else {
-            if !app.game_state::<GameState>().unwrap().is_game_over() {
+            if !app.context::<GameState>().is_game_over() {
                 app.play_audio("bonk", false);
                 app.set_volume("bonk", 0.5);
-                app.game_state_mut::<GameState>()
-                    .unwrap()
-                    .set_game_over(true);
+                app.context_mut::<GameState>().set_game_over(true);
                 app.query::<&mut Text, With<GameOverText>>()
                     .for_each(|t| t.set_visibility(true));
             }
         }
         if winning_condition_met(app) {
-            debug!("hello there");
-            app.game_state_mut::<GameState>().unwrap().set_win(true);
+            app.context_mut::<GameState>().set_win(true);
             app.query::<&mut Text, With<WinText>>()
                 .for_each(|t| t.set_visibility(true));
         }
@@ -512,13 +509,16 @@ fn handle_input(app: &mut App, head_pos: v2) {
     let mut new_direction = v2::ZERO;
 
     if app.key_held(Key::KeyW) && head_pos.y() != 128.0 {
-        new_direction = v2::new(0.0, 1.0);
-    } else if app.key_held(Key::KeyS) && head_pos.y() != -128.0 {
-        new_direction = v2::new(0.0, -1.0);
-    } else if app.key_held(Key::KeyA) && head_pos.x() != -128.0 {
-        new_direction = v2::new(-1.0, 0.0);
-    } else if app.key_held(Key::KeyD) && head_pos.x() != 128.0 {
-        new_direction = v2::new(1.0, 0.0);
+        new_direction += v2::Y;
+    }
+    if app.key_held(Key::KeyA) && head_pos.x() != -128.0 {
+        new_direction -= v2::X;
+    }
+    if app.key_held(Key::KeyS) && head_pos.y() != -128.0 {
+        new_direction -= v2::Y;
+    }
+    if app.key_held(Key::KeyD) && head_pos.x() != 128.0 {
+        new_direction += v2::X;
     }
 
     if new_direction == v2::ZERO {
@@ -532,10 +532,8 @@ fn handle_input(app: &mut App, head_pos: v2) {
 }
 
 fn main() {
-    App::new()
-        .with_preset(App2D)
+    App::with_preset(App2D)
         .with_title("Snake")
         .with_clear_color(sRgba::<u8>::from_hex("1f6c1cff"))
-        .with_game_state(GameState::new())
         .run::<Renderer2D>(setup, update)
 }
