@@ -99,19 +99,10 @@ bundle!(SnakeSegment {
     render: Render2D,
 });
 
-fn setup(app: &mut App, renderer: &mut RenderHandle2D) {
+fn setup(app: &mut App) {
     app.add_context(GameState::new());
 
-    app.register_components::<(
-        Snake,
-        Apple,
-        Direction,
-        Grid,
-        Rectangle2D,
-        Timer,
-        GameOverText,
-        WinText,
-    )>();
+    app.register_components::<(Snake, Apple, Direction, Grid, Timer, GameOverText, WinText)>();
 
     app.load_assets::<AudioClip>(vec!["res://sounds/nom.wav", "res://sounds/bonk.wav"]);
 
@@ -172,8 +163,8 @@ fn setup(app: &mut App, renderer: &mut RenderHandle2D) {
         Render2D::new("res://textures/apple.png", true, v2::new(1.0, 1.0), 1),
     ));
 
-    let game_over_text_bounds = renderer.precompute_text_bounds("Game Over!", font, 16.0);
-    let win_text_bounds = renderer.precompute_text_bounds("You Win!", font, 16.0);
+    let game_over_text_bounds = app.precompute_text_bounds("Game Over!", font, 16.0);
+    let win_text_bounds = app.precompute_text_bounds("You Win!", font, 16.0);
 
     let game_over_text_transform =
         Transform2D::with_position(Position2D::from_vec(-game_over_text_bounds / 2.0));
@@ -207,7 +198,7 @@ fn setup(app: &mut App, renderer: &mut RenderHandle2D) {
     move_apple(app);
 }
 
-fn update(app: &mut App, renderer: &mut RenderHandle2D, _dt: f32) {
+fn update(app: &mut App, _dt: f32) {
     if !app.context::<GameState>().has_won() {
         let head_pos = app
             .query::<&Transform2D, With<Snake>>()
@@ -217,7 +208,7 @@ fn update(app: &mut App, renderer: &mut RenderHandle2D, _dt: f32) {
             .position()
             .as_vec();
 
-        resize_game_camera(app, renderer);
+        resize_game_camera(app);
         if !snake_out_of_bounds(app) && !is_snake_body_colliding(app) {
             handle_input(app, head_pos);
             update_snake(app);
@@ -236,7 +227,6 @@ fn update(app: &mut App, renderer: &mut RenderHandle2D, _dt: f32) {
                 .for_each(|t| t.set_visibility(true));
         }
     }
-    renderer.render_scene_2d(app.scene_mut());
 }
 
 fn update_timers(app: &mut App, dt: f32) {
@@ -245,26 +235,26 @@ fn update_timers(app: &mut App, dt: f32) {
     });
 }
 
-fn resize_game_camera(app: &mut App, renderer: &mut RenderHandle2D) {
+fn resize_game_camera(app: &mut App) {
     let (grid_cells, grid_cell_size) = match app.query::<&Grid, ()>().iter().next() {
         Some(g) => (g.cells(), g.cell_size()),
         None => return,
     };
 
+    let window_size = app.size();
+    let scale_factor = app.scale_factor();
+
     app.query::<&mut Camera2D, ()>().for_each(|c| {
-        let size = renderer.size();
-        let scale_factor = renderer.scale_factor() as f32;
+        let game_width = (grid_cells as f32 * grid_cell_size) as f64;
+        let game_height = (grid_cells as f32 * grid_cell_size) as f64;
 
-        let game_width = grid_cells as f32 * grid_cell_size;
-        let game_height = grid_cells as f32 * grid_cell_size;
-
-        let screen_width = size.width as f32 / scale_factor;
-        let screen_height = size.height as f32 / scale_factor;
+        let screen_width = window_size.width as f64 / scale_factor;
+        let screen_height = window_size.height as f64 / scale_factor;
 
         let mut fit_scale = 1.0;
         for mult in 1..=10 {
-            if game_width * mult as f32 <= screen_width
-                && game_height * mult as f32 <= screen_height
+            if game_width * mult as f64 <= screen_width
+                && game_height * mult as f64 <= screen_height
             {
                 fit_scale = mult as f32;
             } else {
@@ -535,5 +525,5 @@ fn main() {
     App::with_preset(App2D)
         .with_title("Snake")
         .with_clear_color(sRgba::<u8>::from_hex("1f6c1cff"))
-        .run::<Renderer2D>(setup, update)
+        .run(setup, update)
 }
