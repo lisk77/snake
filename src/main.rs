@@ -498,16 +498,16 @@ fn winning_condition_met(app: &mut App) -> bool {
 fn handle_input(app: &mut App, head_pos: v2) {
     let mut new_direction = v2::ZERO;
 
-    if app.key_held(Key::KeyW) && head_pos.y() != 128.0 {
+    if app.key_pressed(Key::KeyW) && head_pos.y() != 128.0 {
         new_direction += v2::Y;
     }
-    if app.key_held(Key::KeyA) && head_pos.x() != -128.0 {
+    if app.key_pressed(Key::KeyA) && head_pos.x() != -128.0 {
         new_direction -= v2::X;
     }
-    if app.key_held(Key::KeyS) && head_pos.y() != -128.0 {
+    if app.key_pressed(Key::KeyS) && head_pos.y() != -128.0 {
         new_direction -= v2::Y;
     }
-    if app.key_held(Key::KeyD) && head_pos.x() != 128.0 {
+    if app.key_pressed(Key::KeyD) && head_pos.x() != 128.0 {
         new_direction += v2::X;
     }
 
